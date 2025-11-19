@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple E‑Commerce Demo</title>
+  <style>
+    /* --- Basic reset & layout --- */
+    :root{--accent:#0ea5a4;--muted:#6b7280}
+    *{box-sizing:border-box}body{font-family:Inter,ui-sans-serif,system-ui,Helvetica,Arial;margin:0;background:#f7fafc;color:#0f172a}
+    .container{max-width:1100px;margin:32px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    h1{font-size:20px;margin:0}
+    /* --- Products grid --- */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+    .card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06);display:flex;flex-direction:column}
+    .img{height:140px;border-radius:8px;background-size:cover;background-position:center;margin-bottom:12px}
+    .title{font-weight:600;margin:0 0 6px}
+    .price{color:var(--accent);font-weight:700}
+    button{cursor:pointer;padding:8px 10px;border-radius:8px;border:0;background:var(--accent);color:white}
+    .muted{color:var(--muted);font-size:13px}
+    /* --- Cart --- */
+    .topbar{display:flex;gap:12px;align-items:center}
+    .cart-btn{position:relative}
+    .cart-count{position:absolute;right:-8px;top:-8px;background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px}
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:20px}
+    aside{background:#fff;padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+    .cart-items{max-height:440px;overflow:auto;margin-bottom:12px}
+    .cart-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f7}
+    .cart-item img{width:56px;height:56px;border-radius:8px;object-fit:cover}
+    .qty{display:flex;gap:6px;align-items:center}
+    .ghost{background:transparent;border:1px solid #e6eef3;padding:6px;border-radius:6px}
+    .empty{color:var(--muted);text-align:center;padding:40px 0}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+    @media (max-width:900px){.layout{grid-template-columns:1fr}.container{padding:12px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ShopSimple — Demo Store</h1>
+      <div class="topbar">
+        <input id="search" placeholder="Search products..." style="padding:8px;border-radius:8px;border:1px solid #e6eef3" />
+        <div class="cart-btn">
+          <button id="toggleCart">Cart</button>
+          <div id="cartCount" class="cart-count" style="display:none">0</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section>
+        <div id="products" class="grid"></div>
+      </section>
+
+      <aside id="cartPanel">
+        <h3>Shopping Cart</h3>
+        <div id="cartItems" class="cart-items"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="muted">Total:</div>
+          <div id="cartTotal" style="font-weight:800">₹0.00</div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button id="checkoutBtn">Checkout</button>
+          <button id="clearBtn" class="ghost">Clear</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      This is a front-end demo only — checkout is simulated. Data persists locally (localStorage).
+    </footer>
+  </div>
+
+  <script>
+    /* ---------------- Sample product data ---------------- */
+    const PRODUCTS = [
+      {id:1,title:'Classic White T-Shirt',price:399,desc:'Soft cotton tee, regular fit',img:'https://picsum.photos/seed/t1/400/300'},
+      {id:2,title:'Blue Denim Jeans',price:1299,desc:'Slim fit, stretchable',img:'https://picsum.photos/seed/t2/400/300'},
+      {id:3,title:'Sneakers',price:2499,desc:'Everyday running shoes',img:'https://picsum.photos/seed/t3/400/300'},
+      {id:4,title:'Leather Wallet',price:799,desc:'Genuine leather, 6 slots',img:'https://picsum.photos/seed/t4/400/300'},
+      {id:5,title:'Bluetooth Headphones',price:1999,desc:'Wireless, 20h battery',img:'https://picsum.photos/seed/t5/400/300'},
+      ];
+
+    /* ---------------- Utilities ---------------- */
+    const $ = (sel) => document.querySelector(sel);
+    const format = v => '₹' + v.toFixed(2);
+
+    /* ---------------- Cart state (persisted) ---------------- */
+    let cart = JSON.parse(localStorage.getItem('demo_cart') || '{}'); // {productId: qty}
+
+    function saveCart(){
+      localStorage.setItem('demo_cart', JSON.stringify(cart));
+      renderCartCount();
+    }
+
+    /* ---------------- Render products ---------------- */
+    function renderProducts(filter=''){
+      const container = $('#products');
+      container.innerHTML = '';
+      const f = filter.trim().toLowerCase();
+      const list = PRODUCTS.filter(p => !f || p.title.toLowerCase().includes(f) || p.desc.toLowerCase().includes(f));
+      list.forEach(p=>{
+        const el = document.createElement('div'); el.className='card';
+        el.innerHTML = `
+          <div class="img" style="background-image:url('${p.img}')"></div>
+          <h4 class="title">${p.title}</h4>
+          <div class="muted">${p.desc}</div>
+          <div style="margin-top:auto;display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+            <div class="price">${format(p.price)}</div>
+            <button data-id="${p.id}">Add</button>
+          </div>
+        `;
+        el.querySelector('button').addEventListener('click', ()=> addToCart(p.id));
+        container.appendChild(el);
+      });
+    }
+
+    /* ---------------- Cart logic ---------------- */
+    function addToCart(id){
+      cart[id] = (cart[id] || 0) + 1;
+      saveCart();
+      renderCart();
+    }
+
+    function removeFromCart(id){
+      delete cart[id];
+      saveCart();
+      renderCart();
+    }
+
+    function changeQty(id, delta){
+      const cur = cart[id] || 0;
+      const next = cur + delta;
+      if(next <= 0) removeFromCart(id); else cart[id] = next;
+      saveCart();
+      renderCart();
+    }
+
+    function cartItemsArray(){
+      return Object.keys(cart).map(k => {
+        const p = PRODUCTS.find(x=>x.id==k);
+        return {product:p, qty:cart[k]};
+      });
+    }
+
+    function cartTotal(){
+      return cartItemsArray().reduce((s,it) => s + it.product.price * it.qty, 0);
+    }
+
+    /* ---------------- Render cart panel ---------------- */
+    function renderCart(){
+      const container = $('#cartItems');
+      container.innerHTML = '';
+      const items = cartItemsArray();
+      if(items.length===0){
+        container.innerHTML = '<div class="empty">Your cart is empty</div>';
+      } else {
+        items.forEach(it => {
+          const el = document.createElement('div'); el.className='cart-item';
+          el.innerHTML = `
+            <img src="${it.product.img}" alt="">
+            <div style="flex:1">
+              <div style="font-weight:700">${it.product.title}</div>
+              <div class="muted">${format(it.product.price)} × ${it.qty} = <strong>${format(it.product.price*it.qty)}</strong></div>
+            </div>
+            <div class="qty">
+              <button class="ghost" data-decr="${it.product.id}">-</button>
+              <div>${it.qty}</div>
+              <button class="ghost" data-incr="${it.product.id}">+</button>
+            </div>
+          `;
+          el.querySelector('[data-decr]').addEventListener('click', ()=> changeQty(it.product.id, -1));
+          el.querySelector('[data-incr]').addEventListener('click', ()=> changeQty(it.product.id, 1));
+          container.appendChild(el);
+        });
+      }
+      $('#cartTotal').textContent = format(cartTotal());
+      renderCartCount();
+    }
+
+    function renderCartCount(){
+      const count = Object.values(cart).reduce((s,n)=>s+n,0);
+      const el = $('#cartCount');
+      if(count>0){el.style.display='flex';el.textContent = count;} else el.style.display='none';
+    }
+
+    /* ---------------- Actions ---------------- */
+    $('#toggleCart').addEventListener('click', ()=>{
+      const aside = document.getElementById('cartPanel');
+      aside.scrollIntoView({behavior:'smooth'});
+    });
+
+    $('#clearBtn').addEventListener('click', ()=>{
+      if(confirm('Clear cart?')){ cart = {}; saveCart(); renderCart(); }
+    });
+
+    $('#checkoutBtn').addEventListener('click', ()=>{
+      const total = cartTotal();
+      if(total===0){ alert('Your cart is empty'); return; }
+      // Simulate checkout
+      const name = prompt('Enter your name to simulate checkout');
+      if(!name) return;
+      alert(`Thanks, ${name}! Your order of ${format(total)} has been placed (simulated).`);
+      cart = {}; saveCart(); renderCart();
+    });
+
+    $('#search').addEventListener('input', (e)=> renderProducts(e.target.value));
+
+    /* ---------------- Init ---------------- */
+    renderProducts();
+    renderCart();
+  </script>
+</body>
+</html>
